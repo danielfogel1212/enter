@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <p>logout</p>
+    <script>
+
+async function logout() {
+    accessToken =sessionStorage.getItem('access_token');
+    try {
+        const response = await fetch('http://127.0.0.1:5000/logout', {
+            method: 'POST',
+            // Add headers if needed, e.g., for authentication
+           
+                headers: {
+                'Authorization': `Bearer ${accessToken}`// Replace YourAuthToken with the actual token
+            },
+      });
+
+        // Check if the request was successful (status code 200)
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Logout successful:', data);
+            
+            // Remove the access token from sessionStorage
+            sessionStorage.removeItem('access_token');
+            window.location.href="login.html"
+            
+            // Perform any additional actions after successful logout
+        } else {
+            const errorMessage = await response.text();
+            window.location.href="login.html"
+            
+        }
+    } catch (error) {
+        console.error('An error occurred during logout:', error);
+        window.location.href="login.html"
+            
+    }
+
+}
+
+// Call the logout function
+logout();
+
+    </script>
+
+</body>
+</html>

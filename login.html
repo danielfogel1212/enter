@@ -1,0 +1,146 @@
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+
+<style>
+    body {
+  margin: 0;
+  padding: 0;
+  background-image: url('bg.jpeg');
+  background-size: cover; /* This ensures the background covers the entire container */
+  background-position: center; /* Center the background image */
+  background-repeat: no-repeat; /* Prevent background image from repeating */
+}
+
+</style>
+<link rel="icon" href="enter.jpg" type="image/x-icon">
+<title>התחברות</title>
+<link rel="stylesheet" href="css/style.css" type="text/css" />
+</head>
+
+<body style="direction: rtl;">
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon">  </span>
+  </button>
+
+  <div class="collapse navbar-collapse" id="navbarSupportedContent">
+    <ul class="navbar-nav mr-auto">
+      <li class="nav-item active">
+        <a class="nav-link" href="login.php">התחבר למערכת<span class="sr-only">(current)</span></a>
+      </li>
+      <li class="nav-item">
+     
+      </li>
+      <li class="nav-item dropdown">
+  
+      </li>
+      <li class="nav-item">
+  <a class="navbar-brand" href="#">ENTER Digital Studio</a>
+      </li>
+    </ul>
+    <form class="form-inline my-2 my-lg-0">
+
+    </form>
+  </div>
+</nav>
+    <div id="login" style="direction:rtl;text-align: right;" >
+
+            <div class="container">
+                <div id="login-row" class="row justify-content-center align-items-center">
+                    <div id="login-column" class="col-md-6">
+                        <div id="login-box" class="col-md-12">
+                            <form id="login-form" class="form" action="" method="post" style="margin-top: 100px;">
+                                <h3 class="text-center text-info">התחברות</h3>
+                                <div class="form-group">
+                                    <label for="username" class="text-info">שם משתמש</label><br>
+                                    <input type="text" name="username" id="username" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label for="password" class="text-info">סיסמא</label><br>
+                                    <input type="password" name="password" id="password" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label for="remember-me" class="text-info"><span>זכור אותי</span> <span><input id="remember-me" name="remember-me" type="checkbox"></span></label><br>
+                                    <button type="button" id="login-button" name="login-button" class="btn btn-info btn-md" >שלח</button>
+                                </div>
+                                <div id="register-link" class="text-right">
+                               
+                                </div>
+                            </form>
+                            <!-- <center><img src="enter.jpg" width="300" height="300" style="margin-top:100px"></center>                        -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+       const accessToken =sessionStorage.getItem('access_token');
+       if(accessToken){
+        window.location.href = "index.html";
+       }
+        
+        document.getElementById('login-button').addEventListener("click", edit);
+        
+        async function edit(event) {
+    event.preventDefault();
+ 
+    const form = document.getElementById('login-form');
+    const formData = new FormData(form);
+ 
+    try {
+        const response = await fetch('http://127.0.0.1:5000/login', {
+    method: 'POST',
+    headers: {
+        // Omit Content-Type header to allow the browser to set it automatically
+    },
+    body: formData,
+});
+
+console.log(response);
+
+if (response.status === 201) {
+
+    const data = await response.json();
+    console.log(data);
+    sessionStorage.setItem('access_token', data.access_token);
+window.location.href="index.html";
+}
+        if (response.ok) {
+           
+            const data = await response.json();
+            if(data['message']=='Login admin')
+           {
+                    sessionStorage.setItem('access_token', data.access_token);
+          // Handle success
+            document.getElementById("register-link").innerHTML = `
+                <div class="alert alert-success" role="alert">
+                  משתמש נוסף בהצלחה
+                </div>`;
+             window.location.href = "admin.html";
+            }
+            else{
+                window.location.href="index.html"
+                sessionStorage.setItem('access_token', data.access_token);
+          // Handle success
+            }
+        } else {
+            // Handle errors
+            document.getElementById("register-link").innerHTML = `
+                <div class="alert alert-danger" role="alert">
+                    שם משתמש וסיסמא לא נכונים
+                </div>`;
+                
+        }
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+</script>
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

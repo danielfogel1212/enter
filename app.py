@@ -1,0 +1,409 @@
+from flask import Flask, render_template, request, redirect, url_for,jsonify,session,make_response
+from flask_sqlalchemy import SQLAlchemy
+import locale
+from flask_jwt_extended import jwt_required, get_jwt_identity, unset_jwt_cookies, get_jwt
+from datetime import timedelta
+from datetime import datetime
+from flask_cors import CORS
+from flask_session import Session
+from flask_restful import Api, Resource, reqparse
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity,unset_jwt_cookies
+import pymysql
+
+app = Flask(__name__)
+
+
+app.config['SECRET_KEY'] = '1234'
+
+
+# Configure the MySQL database URI
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/sctime'
+CORS(app)
+db = SQLAlchemy(app)
+api = Api(app)
+jwt = JWTManager(app)
+ 
+ 
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    username = db.Column(db.String(80), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(120),  nullable=False)
+    
+    def __init__(self, username, email,password):
+        self.username = username
+        self.email = email
+        self.password = password
+        
+ 
+class Shift(db.Model):
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    morning = db.Column(db.String(80), nullable=False)
+    lunch = db.Column(db.String(80), nullable=False)
+    user_id = db.Column(db.Integer, nullable=False)
+    dates = db.Column(db.String(80),unique=False, nullable=False)
+    month=db.Column(db.String(80),unique=False)
+    day= db.Column(db.String(70), unique=False,nullable=False)
+ 
+ 
+    def __init__(self, morning, lunch, user_id, dates,day):
+        self.morning = morning
+        self.lunch = lunch
+        self.user_id = user_id
+        self.dates = dates
+        self.day = day
+ 
+with app.app_context():
+    db.create_all()
+
+    
+
+             
+@app.route("/logout", methods=["POST"])
+@jwt_required()
+def logout():
+  
+    response = jsonify({"message": "Logout successful"})
+    unset_jwt_cookies(response)
+
+    # In a token-based approach, simply generate a new token
+    # The old token will eventually expire, and the client can use the new one
+    new_access_token = create_access_token(identity=None)  # Identity set to None for anonymous user
+    response.headers["Authorization"] = f"Bearer {new_access_token}"
+
+    return response, 200
+    
+@app.route('/get_name', methods=['GET'])
+@jwt_required()
+def get_name():
+    current_user_id = get_jwt_identity()
+    user = User.query.filter_by(id=current_user_id).first()
+
+    if user:
+        print(user.username)
+        return jsonify({'username': user.username}), 200
+    else:
+        return jsonify({'message': 'User not found'}), 404
+    
+
+
+@app.route('/register', methods=['POST'])
+@jwt_required()
+def registeru():
+        data= request.form
+       
+        username = data.get('name')
+        family = data.get('family')
+        email = data.get('email')
+        password = data.get('password') 
+        new_user = User(username=username, email=email, password=password)
+
+        try:
+          db.session.add(new_user)
+          db.session.commit()
+          return jsonify({'message': 'User registered successfully'}),200
+        except Exception as e:
+          db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+     
+
+def get_username(username1):
+     user = User.query.filter_by(id=username1).first()
+     return user.username
+
+
+@app.route('/allsh', methods=['POST'])
+@jwt_required()
+def shift1():
+            task_list = []
+            tasks = Shift.query.all()
+            if tasks:
+              for task in tasks:
+                    
+                    task_dict = {
+                        'id': task.id,
+                        'morning': task.morning,
+                        'lunch': task.lunch,
+                        'user_id': task.user_id,
+                        'dates': task.dates,
+                        'day': task.day,
+                        'username': get_username(task.user_id)
+                    }
+                    # print(task.user_id)
+                    
+                    task_list.append(task_dict)
+
+            return jsonify(task_list)
+
+@app.route('/allshifts', methods=['POST'])
+@jwt_required()
+def shift():
+            current_user_id = get_jwt_identity()
+            task_list = []
+            tasks = Shift.query.filter_by(user_id=current_user_id).all()
+            if tasks:
+              for task in tasks:
+                    task_dict = {
+                        'id': task.id,
+                        'morning': task.morning,
+                        'lunch': task.lunch,
+                        'user_id': task.user_id,
+                        'dates': task.dates,
+                        'day': task.day
+                    }
+                    task_list.append(task_dict)
+            return jsonify(task_list)
+           
+
+
+
+@app.route('/shift', methods=['POST'])
+@jwt_required()
+def shifts():
+          
+        
+            data= request.form
+
+            current_user_id = get_jwt_identity()
+            task_to_update = Shift.query.filter_by(day=data['sundayID'],user_id=current_user_id,dates="11").first()
+            if task_to_update:
+                if data['morning']:
+                   task_to_update.morning = data['morning']
+                if  data['sundayID']:
+                    task_to_update.day = data['sundayID']
+                db.session.commit()
+            else:
+              task_to_update = Shift(morning=data['morning'], lunch="בחר",user_id=current_user_id,dates="11",day=data['sundayID'])
+              db.session.add(task_to_update)
+              db.session.commit()
+           
+            current_user_id = get_jwt_identity()
+            task_to_update = Shift.query.filter_by(day=data['sundayIDl'],user_id=current_user_id,dates="11").first()
+            if task_to_update:
+                if data['lunch']:
+                   task_to_update.lunch = data['lunch']
+                if  data['sundayIDl']:
+                    task_to_update.day = data['sundayIDl']
+                db.session.commit()
+            else:
+              task_to_update = Shift(morning=data['lunch'], lunch="בחר",user_id=current_user_id,dates="11",day=data['sundayIDl'])
+              db.session.add(task_to_update)
+              db.session.commit()
+
+
+
+            current_user_id = get_jwt_identity()
+            task_to_update = Shift.query.filter_by(day=data['mondayID'],user_id=current_user_id,dates="11").first()
+            if task_to_update:
+                if data['morning1']:
+                   task_to_update.morning = data['morning1']
+                if  data['mondayID']:
+                    task_to_update.day = data['mondayID']
+                db.session.commit()
+            else:
+              task_to_update = Shift(morning=data['morning1'], lunch="בחר",user_id=current_user_id,dates="11",day=data['mondayID'])
+              db.session.add(task_to_update)
+              db.session.commit()
+
+
+
+            current_user_id = get_jwt_identity()
+            task_to_update = Shift.query.filter_by(day=data['mondayIDl'],user_id=current_user_id,dates="11").first()
+            if task_to_update:
+                if data['lunch1']:
+                   task_to_update.lunch= data['lunch1']
+                if  data['mondayIDl']:
+                    task_to_update.day = data['mondayIDl']
+                db.session.commit()
+            else:
+              task_to_update = Shift(morning=data['lunch1'], lunch="בחר",user_id=current_user_id,dates="11",day=data['mondayIDl'])
+              db.session.add(task_to_update)
+              db.session.commit()
+
+
+
+
+
+
+
+            current_user_id = get_jwt_identity()
+            task_to_update = Shift.query.filter_by(day=data['tuesdayID'],user_id=current_user_id,dates="11").first()
+            if task_to_update:
+                if data['morning3']:
+                   task_to_update.morning = data['morning3']
+                if  data['tuesdayID']:
+                    task_to_update.day = data['tuesdayID']
+                db.session.commit()
+            else:
+              task_to_update = Shift(morning=data['morning3'], lunch="בחר",user_id=current_user_id,dates="11",day=data['tuesdayID'])
+              db.session.add(task_to_update)
+              db.session.commit()
+
+               
+            current_user_id = get_jwt_identity()
+            task_to_update = Shift.query.filter_by(day=data['tuesdayIDl'],user_id=current_user_id,dates="11").first()
+            if task_to_update:
+                if data['lunch3']:
+                   task_to_update.lunch = data['lunch3']
+                if  data['tuesdayIDl']:
+                    task_to_update.day = data['tuesdayIDl']
+                db.session.commit()
+            else:
+              task_to_update = Shift(morning=data['lunch3'], lunch="בחר",user_id=current_user_id,dates="11",day=data['tuesdayIDl'])
+              db.session.add(task_to_update)
+              db.session.commit()
+             
+
+
+
+             
+            current_user_id = get_jwt_identity()
+            task_to_update = Shift.query.filter_by(day=data['wednesdayID'],user_id=current_user_id,dates="11").first()
+            if task_to_update:
+                if data['morning4']:
+                   task_to_update.morning = data['morning4']
+                if  data['wednesdayID']:
+                    task_to_update.day = data['wednesdayID']
+                db.session.commit()
+            else:
+              task_to_update = Shift(morning=data['morning4'], lunch="בחר",user_id=current_user_id,dates="11",day=data['wednesdayID'])
+              db.session.add(task_to_update)
+              db.session.commit()
+
+
+
+
+             
+            current_user_id = get_jwt_identity()
+            task_to_update = Shift.query.filter_by(day=data['wednesdayIDl'],user_id=current_user_id,dates="11").first()
+            if task_to_update:
+                if data['lunch4']:
+                   task_to_update.lunch = data['lunch4']
+                if  data['wednesdayIDl']:
+                    task_to_update.day = data['wednesdayIDl']
+                db.session.commit()
+            else:
+              task_to_update = Shift(morning=data['lunch4'], lunch="בחר",user_id=current_user_id,dates="11",day=data['wednesdayIDl'])
+              db.session.add(task_to_update)
+              db.session.commit()
+
+            current_user_id = get_jwt_identity()
+            task_to_update = Shift.query.filter_by(day=data['thursdayID'],user_id=current_user_id,dates="11").first()
+            if task_to_update:
+                if data['morning5']:
+                   task_to_update.morning = data['morning5']
+                if  data['thursdayID']:
+                    task_to_update.day = data['thursdayID']
+                db.session.commit()
+            else:
+              task_to_update = Shift(morning=data['morning5'], lunch="בחר",user_id=current_user_id,dates="11",day=data['thursdayID'])
+              db.session.add(task_to_update)
+              db.session.commit()
+
+
+            current_user_id = get_jwt_identity()
+            task_to_update = Shift.query.filter_by(day=data['thursdayIDl'],user_id=current_user_id,dates="11").first()
+            if task_to_update:
+                if data['lunch5']:
+                   task_to_update.lunch = data['lunch5']
+                if  data['thursdayIDl']:
+                    task_to_update.day = data['thursdayIDl']
+                db.session.commit()
+            else:
+              task_to_update = Shift(morning=data['lunch5'], lunch="בחר",user_id=current_user_id,dates="11",day=data['thursdayIDl'])
+              db.session.add(task_to_update)
+              db.session.commit()
+             
+             
+
+            task_list = []
+            tasks = Shift.query.filter_by(user_id=current_user_id).all()
+            for task in tasks:
+                    task_dict = {
+                        'id': task.id,
+                        'morning': task.morning,
+                        'lunch': task.lunch,
+                        'user_id': task.user_id,
+                        'dates': task.dates,
+                        'day': task.day
+                    }
+                    task_list.append(task_dict)
+            return jsonify(task_list)
+
+class UserLogin(Resource):
+    def post(self):
+        data= request.form
+
+
+        username = data['username']
+        password = data['password']
+
+        user = User.query.filter_by(username=username, password=password).first()
+
+        if user and user.id==11:
+            # Assuming successful authentication
+            access_token = create_access_token(identity=user.id,expires_delta=timedelta(hours=24))
+            return {'message': 'Login admin', 'access_token': access_token}, 200
+        elif user:
+             access_token = create_access_token(identity=user.id)
+             return {'message': 'Login ', 'access_token': access_token}, 200
+        else:
+            return {'message': 'no user found'}, 401
+        
+
+class ProtectedResource(Resource):
+    @jwt_required()
+    def get(self):
+        current_user = get_jwt_identity()
+        return {'message': f'Hello, {current_user}!'}
+    
+
+class Admin(Resource):
+    @jwt_required()
+    def get(self):
+        current_user = get_jwt_identity()
+        
+        if current_user == 11:
+            users = User.query.all()           
+
+     
+            user_list = [{'id': user.id, 'username': user.username, 'email': user.email} for user in users]
+            response = {
+            'message': 'Hello, logged in successfully!',
+            'users': user_list
+        }
+            return make_response(jsonify(response), 200)
+        else:
+   
+             return jsonify({'message': 'No users found'}), 404
+
+@app.route('/UserDelete', methods=['POST'])
+@jwt_required()
+def delete_user():
+    
+    # Your logic to delete the user with the specified 
+
+         current_user = get_jwt_identity()
+         data = request.get_json()
+         user_id = data.get('userId')
+         if current_user == 11:
+            user_to_delete = User.query.get(user_id)
+         if user_to_delete:
+            db.session.delete(user_to_delete)
+            db.session.commit()
+            db.session.close()
+            return jsonify({'message': 'deleted'}), 200
+         else:
+              return jsonify({'message': 'No users found'}), 404
+           
+
+            
+api.add_resource(UserLogin, '/login')
+api.add_resource(ProtectedResource, '/protected')
+api.add_resource(Admin, '/admin')
+
+
+
+ 
+if __name__ == '__main__':
+    app.run(debug=True)
